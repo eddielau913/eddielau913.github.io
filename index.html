@@ -148,10 +148,11 @@
         
         .progress-bar {
             height: 100%;
-            width: 30%;
+            width: 0%;
             background: linear-gradient(90deg, #ff9a9e, #fad0c4);
             border-radius: 4px;
             position: relative;
+            transition: width 0.1s linear;
         }
         
         .progress-bar::after {
@@ -324,7 +325,7 @@
                 <div class="progress-bar"></div>
             </div>
             <div class="time-info">
-                <span class="current-time">1:23</span>
+                <span class="current-time">0:00</span>
                 <span class="total-time">4:32</span>
             </div>
         </div>
@@ -332,7 +333,7 @@
         <div class="playlist">
             <h2>熱門動漫歌曲</h2>
             <ul class="playlist-items">
-                <li class="playlist-item active" data-song="紅蓮華" data-artist="LiSA - 鬼滅之刃" data-duration="4:32">
+                <li class="playlist-item active" data-song="紅蓮華" data-artist="LiSA - 鬼滅之刃" data-duration="4:32" data-totalseconds="272">
                     <div class="item-number">01</div>
                     <div class="item-info">
                         <h3>紅蓮華</h3>
@@ -340,7 +341,7 @@
                     </div>
                     <div class="item-duration">4:32</div>
                 </li>
-                <li class="playlist-item" data-song="Gurenge" data-artist="LiSA - 鬼滅之刃" data-duration="3:58">
+                <li class="playlist-item" data-song="Gurenge" data-artist="LiSA - 鬼滅之刃" data-duration="3:58" data-totalseconds="238">
                     <div class="item-number">02</div>
                     <div class="item-info">
                         <h3>Gurenge</h3>
@@ -348,7 +349,7 @@
                     </div>
                     <div class="item-duration">3:58</div>
                 </li>
-                <li class="playlist-item" data-song="Unravel" data-artist="TK - 東京喰種" data-duration="4:21">
+                <li class="playlist-item" data-song="Unravel" data-artist="TK - 東京喰種" data-duration="4:21" data-totalseconds="261">
                     <div class="item-number">03</div>
                     <div class="item-info">
                         <h3>Unravel</h3>
@@ -356,7 +357,7 @@
                     </div>
                     <div class="item-duration">4:21</div>
                 </li>
-                <li class="playlist-item" data-song="Silhouette" data-artist="KANA-BOON - 火影忍者" data-duration="4:00">
+                <li class="playlist-item" data-song="Silhouette" data-artist="KANA-BOON - 火影忍者" data-duration="4:00" data-totalseconds="240">
                     <div class="item-number">04</div>
                     <div class="item-info">
                         <h3>Silhouette</h3>
@@ -364,7 +365,7 @@
                     </div>
                     <div class="item-duration">4:00</div>
                 </li>
-                <li class="playlist-item" data-song="Again" data-artist="YUI - 鋼之鍊金術師" data-duration="4:14">
+                <li class="playlist-item" data-song="Again" data-artist="YUI - 鋼之鍊金術師" data-duration="4:14" data-totalseconds="254">
                     <div class="item-number">05</div>
                     <div class="item-info">
                         <h3>Again</h3>
@@ -402,6 +403,9 @@
             // 播放/暫停功能
             let isPlaying = false;
             let visualizerInterval;
+            let progressInterval;
+            let currentSeconds = 0;
+            let totalSeconds = 272; // 預設歌曲總秒數
             
             $('.play-btn').click(function() {
                 isPlaying = !isPlaying;
@@ -409,10 +413,44 @@
                 
                 if (isPlaying) {
                     startVisualizer();
+                    startProgress();
                 } else {
                     stopVisualizer();
+                    stopProgress();
                 }
             });
+            
+            // 進度條更新功能
+            function startProgress() {
+                progressInterval = setInterval(function() {
+                    currentSeconds++;
+                    
+                    // 更新進度條
+                    const progressPercent = (currentSeconds / totalSeconds) * 100;
+                    $('.progress-bar').css('width', progressPercent + '%');
+                    
+                    // 更新時間顯示
+                    const minutes = Math.floor(currentSeconds / 60);
+                    const seconds = currentSeconds % 60;
+                    $('.current-time').text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
+                    
+                    // 如果歌曲播放完畢，自動下一首
+                    if (currentSeconds >= totalSeconds) {
+                        $('.next-btn').click();
+                    }
+                }, 1000);
+            }
+            
+            function stopProgress() {
+                clearInterval(progressInterval);
+            }
+            
+            // 重置進度
+            function resetProgress() {
+                currentSeconds = 0;
+                $('.progress-bar').css('width', '0%');
+                $('.current-time').text('0:00');
+            }
             
             // 視覺效果動畫
             function startVisualizer() {
@@ -444,6 +482,7 @@
                 const songTitle = $(this).data('song');
                 const songArtist = $(this).data('artist');
                 const songDuration = $(this).data('duration');
+                totalSeconds = $(this).data('totalseconds');
                 
                 $('.song-info h2').fadeOut(200, function() {
                     $(this).text(songTitle).fadeIn(200);
@@ -458,14 +497,11 @@
                 });
                 
                 // 重置進度條
-                $('.progress-bar').animate({width: '0%'}, 500).animate({width: '30%'}, 2000);
-                $('.current-time').text('0:00');
+                resetProgress();
                 
                 // 如果播放器正在播放，繼續播放
-                if (!isPlaying) {
-                    isPlaying = true;
-                    $('.play-btn').text('⏸');
-                    startVisualizer();
+                if (isPlaying) {
+                    startProgress();
                 }
             });
             
@@ -502,11 +538,10 @@
                 const clickX = e.offsetX;
                 const progressPercent = (clickX / containerWidth) * 100;
                 
-                $('.progress-bar').animate({width: progressPercent + '%'}, 200);
+                $('.progress-bar').css('width', progressPercent + '%');
                 
                 // 更新時間顯示
-                const totalSeconds = 272; // 4:32 總秒數
-                const currentSeconds = Math.floor((progressPercent / 100) * totalSeconds);
+                currentSeconds = Math.floor((progressPercent / 100) * totalSeconds);
                 
                 const minutes = Math.floor(currentSeconds / 60);
                 const seconds = currentSeconds % 60;
