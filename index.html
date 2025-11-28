@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>魯建豪的動漫音樂世界 - 完美混合版</title>
+    <title>魯建豪的動漫音樂世界 - 互動增強版</title>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -15,17 +18,18 @@
         /* 1. Three.js 容器 (前兩段顯示) */
         #three-js-container {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 1; /* 底層 */
-            transition: opacity 1.5s ease-in-out; /* 淡出動畫 */
-            opacity: 1; /* 預設顯示 */
+            z-index: 5; /* 互動層級要高一點，不然滑鼠摸不到 */
+            transition: opacity 1.5s ease-in-out;
+            opacity: 1;
+            cursor: move; /* 滑鼠變成移動手勢，提示可互動 */
         }
 
         /* 2. 音樂頻譜畫布 (播放時顯示) */
         #visualizer-canvas {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            z-index: 2; /* 在 3D 上層，但預設隱藏 */
+            z-index: 2;
             transition: opacity 1.5s ease-in-out;
-            opacity: 0; /* 預設隱藏 */
+            opacity: 0;
             pointer-events: none;
         }
 
@@ -34,10 +38,10 @@
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             z-index: 10;
             display: flex; justify-content: center; align-items: center; flex-direction: column;
-            pointer-events: none; 
+            pointer-events: none; /* 讓點擊穿透，這樣才能拖曳後面的 3D 模型 */
         }
         
-        /* 場景切換 */
+        /* 讓 UI 中的按鈕和文字可以被點擊/選取 */
         .scene { opacity: 0; transition: opacity 0.8s ease-in-out; display: none; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
         .scene.active { display: flex; opacity: 1; }
         
@@ -46,6 +50,8 @@
             background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1); padding: 40px 60px;
             border-radius: 20px; text-align: center; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); max-width: 80%;
+            /* 讓面板稍微阻擋一下滑鼠，避免在閱讀文字時誤觸旋轉 */
+            pointer-events: auto; 
         }
 
         h1 { font-size: 3.5rem; margin: 0 0 30px 0; text-shadow: 0 0 15px #00ffff; letter-spacing: 5px; color: #fff; }
@@ -67,6 +73,7 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             padding: 20px; box-sizing: border-box; 
             position: relative; z-index: 20;
+            pointer-events: auto; /* 播放器必須可以操作 */
         }
 
         .song-info { text-align: center; margin-bottom: 20px; width: 85%; height: 80px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
@@ -85,12 +92,22 @@
         .progress-bg { width: 100%; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; cursor: pointer; overflow: hidden; }
         .progress-fill { height: 100%; background: #00ffff; width: 0%; transition: width 0.1s linear; box-shadow: 0 0 10px #00ffff; }
         .time-text { display: flex; justify-content: space-between; font-size: 0.8rem; color: #888; margin-top: 8px; }
-        .interactive-hint { position: absolute; bottom: 20px; color: rgba(255,255,255,0.4); font-size: 0.9rem; }
+        
+        /* 互動提示文字 */
+        .drag-hint {
+            position: absolute; bottom: 20px; width: 100%; text-align: center;
+            color: rgba(255,255,255,0.3); font-size: 0.9rem; pointer-events: none;
+            z-index: 6;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.3; } 50% { opacity: 0.8; } 100% { opacity: 0.3; } }
+        
     </style>
 </head>
 <body>
 
     <div id="three-js-container"></div>
+    <div id="hint-text" class="drag-hint">✨ 試著拖曳或滾動滑鼠來旋轉模型 ✨</div>
 
     <canvas id="visualizer-canvas"></canvas>
 
@@ -128,7 +145,7 @@
                     <div class="time-text"><span id="curr-time">0:00</span><span id="dur-time">0:00</span></div>
                 </div>
             </div>
-            <div class="interactive-hint" id="status-msg">特效將隨音樂節奏在圓圈外跳動</div>
+            <div class="drag-hint" style="color: #00ffff; opacity: 0.6;">特效將隨音樂節奏在圓圈外跳動</div>
         </div>
     </div>
 
@@ -155,11 +172,11 @@
         const progressBar = document.getElementById('progress-bar');
         const titleEl = document.getElementById('song-title');
         const artistEl = document.getElementById('artist-name');
-        const statusMsg = document.getElementById('status-msg');
         
         // 背景控制元件
         const threeContainer = document.getElementById('three-js-container');
         const visualizerCanvas = document.getElementById('visualizer-canvas');
+        const hintText = document.getElementById('hint-text');
         const ctx = visualizerCanvas.getContext('2d');
 
         // --- 場景流程 ---
@@ -171,14 +188,19 @@
         }
 
         function startMusicWorld() {
-            // 1. 切換 UI
+            // 切換場景
             nextScene(3);
             
-            // 2. 背景切換特效：3D 消失，光環出現
-            threeContainer.style.opacity = '0'; // 隱藏 3D
-            visualizerCanvas.style.opacity = '1'; // 顯示光環
+            // 處理背景切換
+            threeContainer.style.opacity = '0'; // 3D 消失
+            threeContainer.style.pointerEvents = 'none'; // 禁止 3D 互動
+            hintText.style.display = 'none'; // 隱藏提示文字
 
-            // 3. 啟動音頻
+            visualizerCanvas.style.opacity = '1'; // 光環出現
+
+            // 停用 OrbitControls (避免消耗效能)
+            if (controls) controls.enabled = false;
+
             initAudioContext(); 
             loadSong(currentSongIndex);
             playSong();
@@ -197,7 +219,7 @@
                 analyser.fftSize = 256;
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
                 audioInitialized = true;
-                drawVisualizer(); // 啟動光環繪製
+                drawVisualizer();
             } catch (e) { 
                 console.warn("Audio Context Error", e);
                 drawVisualizer();
@@ -218,12 +240,8 @@
                 isPlaying = true;
                 playBtn.classList.add('active');
                 playIcon.className = 'fas fa-pause';
-                statusMsg.innerText = "正在播放: " + playlist[currentSongIndex].title;
-                statusMsg.style.color = "#00ffff";
             }).catch(error => {
                 console.error("Play failed", error);
-                statusMsg.innerText = "播放失敗，請檢查檔案";
-                statusMsg.style.color = "#ff3333";
                 isPlaying = false;
             });
         }
@@ -233,8 +251,6 @@
             isPlaying = false;
             playBtn.classList.remove('active');
             playIcon.className = 'fas fa-play';
-            statusMsg.innerText = "已暫停";
-            statusMsg.style.color = "#aaa";
         }
 
         function togglePlay() { if (isPlaying) pauseSong(); else playSong(); }
@@ -263,10 +279,9 @@
         }
 
         // ==========================================
-        // SYSTEM 1: Three.js 3D 模型 (前導頁用)
+        // SYSTEM 1: Three.js 3D 模型 + OrbitControls (互動)
         // ==========================================
-        let scene3D, camera3D, renderer3D, mesh3D, innerMesh3D, stars3D;
-        let mouseX = 0, mouseY = 0;
+        let scene3D, camera3D, renderer3D, mesh3D, innerMesh3D, stars3D, controls;
 
         function initThreeJS() {
             const container = document.getElementById('three-js-container');
@@ -280,19 +295,26 @@
             renderer3D.setSize(window.innerWidth, window.innerHeight);
             container.appendChild(renderer3D.domElement);
 
-            // 外層幾何體
+            // --- 加入控制器 (OrbitControls) ---
+            controls = new THREE.OrbitControls(camera3D, renderer3D.domElement);
+            controls.enableDamping = true; // 啟用阻尼 (讓旋轉有慣性，比較平滑)
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;    // 閒置時自動旋轉
+            controls.autoRotateSpeed = 2.0; 
+            controls.enableZoom = true;    // 允許縮放
+
+            // 幾何體
             const geometry = new THREE.IcosahedronGeometry(1.5, 1);
             const material = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.5 });
             mesh3D = new THREE.Mesh(geometry, material);
             scene3D.add(mesh3D);
 
-            // 內層發光球
             const innerGeo = new THREE.IcosahedronGeometry(0.8, 2);
             const innerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
             innerMesh3D = new THREE.Mesh(innerGeo, innerMat);
             mesh3D.add(innerMesh3D);
 
-            // 星空粒子
+            // 星空
             const starGeo = new THREE.BufferGeometry();
             const starCount = 3000;
             const posArray = new Float32Array(starCount * 3);
@@ -302,16 +324,11 @@
             stars3D = new THREE.Points(starGeo, starMat);
             scene3D.add(stars3D);
 
-            // 互動
-            document.addEventListener('mousemove', (e) => {
-                mouseX = (e.clientX - window.innerWidth / 2) / 100;
-                mouseY = (e.clientY - window.innerHeight / 2) / 100;
-            });
             window.addEventListener('resize', () => {
                 camera3D.aspect = window.innerWidth / window.innerHeight;
                 camera3D.updateProjectionMatrix();
                 renderer3D.setSize(window.innerWidth, window.innerHeight);
-                visualizerCanvas.width = window.innerWidth; // 同步調整 Canvas
+                visualizerCanvas.width = window.innerWidth;
                 visualizerCanvas.height = window.innerHeight;
             });
 
@@ -320,19 +337,18 @@
 
         function animateThreeJS() {
             requestAnimationFrame(animateThreeJS);
-            // 旋轉動畫
-            mesh3D.rotation.x += 0.005;
-            mesh3D.rotation.y += 0.005;
-            stars3D.rotation.y -= 0.0002;
-            // 滑鼠視差
-            camera3D.position.x += (mouseX - camera3D.position.x) * 0.05;
-            camera3D.position.y += (-mouseY - camera3D.position.y) * 0.05;
-            camera3D.lookAt(scene3D.position);
+            
+            // 更新控制器 (必須呼叫，否則阻尼和自動旋轉會失效)
+            if(controls) controls.update();
+            
+            // 星空獨立旋轉 (不受滑鼠控制，保持背景感)
+            if(stars3D) stars3D.rotation.y -= 0.0002;
+            
             renderer3D.render(scene3D, camera3D);
         }
 
         // ==========================================
-        // SYSTEM 2: Canvas Audio Visualizer (播放頁用)
+        // SYSTEM 2: Canvas Audio Visualizer
         // ==========================================
         function resizeCanvas() {
             visualizerCanvas.width = window.innerWidth;
@@ -379,7 +395,7 @@
                 ctx.restore();
             }
 
-            // 低音背景震動
+            // 低音震動
             let bass = 0;
             if (dataArray) {
                 for (let i = 0; i < 10; i++) bass += dataArray[i];
@@ -394,7 +410,6 @@
             }
         }
 
-        // 啟動 3D 系統 (一開始就跑)
         initThreeJS();
 
     </script>
