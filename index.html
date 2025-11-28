@@ -3,565 +3,343 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>動漫音樂世界</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>魯建豪的動漫音樂世界 - 完美版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Arial Rounded MT Bold', 'Segoe UI', sans-serif;
-        }
+        /* --- 全局設定 --- */
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Noto Sans TC', sans-serif; color: white; user-select: none; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: flex; justify-content: center; align-items: center; flex-direction: column; pointer-events: none; }
         
-        body {
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-            color: white;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+        .scene { opacity: 0; transition: opacity 0.8s ease-in-out; display: none; pointer-events: auto; flex-direction: column; align-items: center; justify-content: center; width: 100%; }
+        .scene.active { display: flex; opacity: 1; }
         
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
+        /* 玻璃擬態面板 */
+        .glass-panel {
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1); padding: 40px 60px;
+            border-radius: 20px; text-align: center; box-shadow: 0 0 30px rgba(0, 0, 0, 0.5); max-width: 80%;
         }
+
+        h1 { font-size: 3.5rem; margin: 0 0 30px 0; text-shadow: 0 0 15px #00ffff; letter-spacing: 5px; color: #fff; }
+        .intro-text { font-size: 1.4rem; line-height: 1.8; margin-bottom: 30px; color: #eee; }
         
-        header {
-            text-align: center;
-            padding: 40px 0;
-            position: relative;
+        /* 霓虹按鈕 */
+        .cyber-btn {
+            background: rgba(0, 255, 255, 0.1); color: #00ffff; border: 2px solid #00ffff; padding: 12px 50px;
+            font-size: 1.2rem; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; transition: all 0.3s;
+            border-radius: 50px; font-weight: bold;
         }
-        
-        h1 {
-            font-size: 3.5rem;
-            margin-bottom: 10px;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-            background: linear-gradient(45deg, #ff9a9e, #fad0c4, #fad0c4, #a1c4fd);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
+        .cyber-btn:hover { background: #00ffff; color: #000; box-shadow: 0 0 20px #00ffff; transform: scale(1.05); }
+
+        /* 圓形播放器 */
+        .player-circle {
+            width: 360px; height: 360px; border-radius: 50%;
+            background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(15px);
+            border: 2px solid rgba(255, 255, 255, 0.15); box-shadow: 0 0 50px rgba(0, 255, 255, 0.1);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 20px; box-sizing: border-box; transition: box-shadow 0.2s;
         }
-        
-        .subtitle {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            opacity: 0.9;
+        .player-circle.playing { box-shadow: 0 0 60px rgba(255, 0, 255, 0.4); border-color: rgba(255, 0, 255, 0.4); }
+
+        /* 歌曲資訊 */
+        .song-info {
+            text-align: center; margin-bottom: 20px; width: 85%; height: 80px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
         }
-        
-        .anime-character {
-            position: absolute;
-            bottom: -50px;
-            right: 10%;
-            width: 150px;
-            height: 200px;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 150"><circle cx="50" cy="40" r="25" fill="%23ffccdd"/><path d="M30 70 L70 70 L65 120 L35 120 Z" fill="%23ffccdd"/><rect x="35" y="120" width="30" height="30" fill="%234a69bd"/></svg>') no-repeat;
+        .song-title {
+            font-size: 1.3rem; color: #ff00ff; text-shadow: 0 0 8px #ff00ff; font-weight: bold; margin-bottom: 5px;
+            white-space: normal; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
         }
-        
-        .music-player {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 30px;
-            margin: 40px 0;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+        .artist-name { font-size: 0.9rem; color: #aaa; margin-top: 2px; }
+
+        /* 控制區 */
+        .controls-row { display: flex; align-items: center; justify-content: center; gap: 25px; margin-bottom: 25px; }
+        .nav-btn { background: none; border: none; color: rgba(255, 255, 255, 0.6); font-size: 1.8rem; cursor: pointer; transition: 0.2s; padding: 10px; }
+        .nav-btn:hover { color: #fff; transform: scale(1.2); text-shadow: 0 0 10px #fff; }
+
+        .main-play-btn {
+            width: 70px; height: 70px; border-radius: 50%; background: linear-gradient(135deg, #00ffff, #0088ff);
+            border: none; color: white; font-size: 1.8rem; cursor: pointer; display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); transition: all 0.3s; padding-left: 5px;
         }
-        
-        .player-header {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        
-        .album-art {
-            width: 120px;
-            height: 120px;
-            border-radius: 10px;
-            background: linear-gradient(45deg, #ff9a9e, #fad0c4);
-            margin-right: 20px;
-            position: relative;
-            overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-        
-        .album-art::before {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="white" stroke-width="2"/><circle cx="50" cy="50" r="15" fill="none" stroke="white" stroke-width="2"/></svg>') no-repeat center;
-        }
-        
-        .song-info h2 {
-            font-size: 1.8rem;
-            margin-bottom: 5px;
-        }
-        
-        .song-info p {
-            opacity: 0.8;
-            font-size: 1.1rem;
-        }
-        
-        .controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 30px 0;
-        }
-        
-        .control-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            margin: 0 15px;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        
-        .control-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        .play-btn {
-            width: 70px;
-            height: 70px;
-            background: rgba(255, 255, 255, 0.3);
-            font-size: 1.8rem;
-        }
-        
-        .progress-container {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            margin: 20px 0;
-            cursor: pointer;
-            position: relative;
-        }
-        
-        .progress-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #ff9a9e, #fad0c4);
-            border-radius: 4px;
-            position: relative;
-            transition: width 0.1s linear;
-        }
-        
-        .progress-bar::after {
-            content: "";
-            position: absolute;
-            right: -5px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: white;
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
-        }
-        
-        .time-info {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 5px;
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        
-        .playlist {
-            margin-top: 40px;
-        }
-        
-        .playlist h2 {
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-        
-        .playlist-items {
-            list-style: none;
-        }
-        
-        .playlist-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            margin-bottom: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .playlist-item:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .playlist-item.active {
-            background: rgba(255, 255, 255, 0.25);
-            border-left: 5px solid #ff9a9e;
-        }
-        
-        .item-number {
-            width: 30px;
-            text-align: center;
-            margin-right: 15px;
-            font-weight: bold;
-        }
-        
-        .item-info {
-            flex: 1;
-        }
-        
-        .item-info h3 {
-            font-size: 1.1rem;
-            margin-bottom: 5px;
-        }
-        
-        .item-info p {
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        
-        .item-duration {
-            opacity: 0.8;
-        }
-        
-        .visualizer {
-            height: 150px;
-            margin: 40px 0;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            gap: 5px;
-        }
-        
-        .bar {
-            width: 10px;
-            background: linear-gradient(to top, #ff9a9e, #fad0c4);
-            border-radius: 5px 5px 0 0;
-        }
-        
-        footer {
-            text-align: center;
-            padding: 30px 0;
-            margin-top: 50px;
-            border-top: 1px solid rgba(255, 255, 255, 0.2);
-            font-size: 0.9rem;
-            opacity: 0.8;
-        }
-        
-        @media (max-width: 768px) {
-            h1 {
-                font-size: 2.5rem;
-            }
-            
-            .anime-character {
-                display: none;
-            }
-            
-            .player-header {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .album-art {
-                margin-right: 0;
-                margin-bottom: 20px;
-            }
-        }
+        .main-play-btn:hover { transform: scale(1.1); box-shadow: 0 0 25px #00ffff; }
+        .main-play-btn.active { padding-left: 0; background: linear-gradient(135deg, #ff00ff, #ff0088); }
+
+        /* 進度條 */
+        .progress-wrapper { width: 75%; position: relative; }
+        .progress-bg { width: 100%; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; cursor: pointer; overflow: hidden; }
+        .progress-fill { height: 100%; background: #00ffff; width: 0%; transition: width 0.1s linear; box-shadow: 0 0 10px #00ffff; }
+        .time-text { display: flex; justify-content: space-between; font-size: 0.8rem; color: #888; margin-top: 8px; }
+        .interactive-hint { position: absolute; bottom: 20px; color: rgba(255,255,255,0.4); font-size: 0.9rem; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>動漫音樂世界</h1>
-            <p class="subtitle">沉浸在最受歡迎的動漫音樂中</p>
-            <div class="anime-character"></div>
-        </header>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-layer">
         
-        <div class="music-player">
-            <div class="player-header">
-                <div class="album-art"></div>
+        <div id="scene-1" class="scene active">
+            <div class="glass-panel">
+                <h1>我是魯建豪</h1>
+                <button class="cyber-btn" onclick="nextScene(2)">繼續</button>
+            </div>
+        </div>
+
+        <div id="scene-2" class="scene">
+            <div class="glass-panel">
+                <div class="intro-text">
+                    由於我喜歡觀看日本動漫，很喜歡動漫裡的音樂，<br>
+                    接下來將帶你進入我的動漫音樂世界。
+                </div>
+                <button class="cyber-btn" onclick="startMusicWorld()">開始體驗</button>
+            </div>
+        </div>
+
+        <div id="scene-3" class="scene">
+            <div class="player-circle" id="player-container">
                 <div class="song-info">
-                    <h2>紅蓮華</h2>
-                    <p>LiSA - 鬼滅之刃 主題曲</p>
+                    <div class="song-title" id="song-title">Song Title</div>
+                    <div class="artist-name" id="artist-name">Artist</div>
+                </div>
+
+                <div class="controls-row">
+                    <button class="nav-btn" onclick="prevSong()"><i class="fas fa-step-backward"></i></button>
+                    <button class="main-play-btn" id="play-btn" onclick="togglePlay()"><i class="fas fa-play"></i></button>
+                    <button class="nav-btn" onclick="nextSong()"><i class="fas fa-step-forward"></i></button>
+                </div>
+
+                <div class="progress-wrapper">
+                    <div class="progress-bg" onclick="setProgress(event)">
+                        <div class="progress-fill" id="progress-bar"></div>
+                    </div>
+                    <div class="time-text">
+                        <span id="curr-time">0:00</span>
+                        <span id="dur-time">0:00</span>
+                    </div>
                 </div>
             </div>
-            
-            <div class="visualizer">
-                <div class="bar" style="height: 20%"></div>
-                <div class="bar" style="height: 40%"></div>
-                <div class="bar" style="height: 60%"></div>
-                <div class="bar" style="height: 30%"></div>
-                <div class="bar" style="height: 70%"></div>
-                <div class="bar" style="height: 50%"></div>
-                <div class="bar" style="height: 80%"></div>
-                <div class="bar" style="height: 40%"></div>
-                <div class="bar" style="height: 60%"></div>
-                <div class="bar" style="height: 30%"></div>
-                <div class="bar" style="height: 70%"></div>
-                <div class="bar" style="height: 50%"></div>
-                <div class="bar" style="height: 90%"></div>
-                <div class="bar" style="height: 40%"></div>
-                <div class="bar" style="height: 60%"></div>
-            </div>
-            
-            <div class="controls">
-                <button class="control-btn prev-btn">⏮</button>
-                <button class="control-btn play-btn">▶</button>
-                <button class="control-btn next-btn">⏭</button>
-            </div>
-            
-            <div class="progress-container">
-                <div class="progress-bar"></div>
-            </div>
-            <div class="time-info">
-                <span class="current-time">0:00</span>
-                <span class="total-time">4:32</span>
-            </div>
+            <div class="interactive-hint" id="status-msg">移動滑鼠探索空間 | 播放音樂感受節奏</div>
         </div>
-        
-        <div class="playlist">
-            <h2>熱門動漫歌曲</h2>
-            <ul class="playlist-items">
-                <li class="playlist-item active" data-song="紅蓮華" data-artist="LiSA - 鬼滅之刃" data-duration="4:32" data-totalseconds="272">
-                    <div class="item-number">01</div>
-                    <div class="item-info">
-                        <h3>紅蓮華</h3>
-                        <p>LiSA - 鬼滅之刃</p>
-                    </div>
-                    <div class="item-duration">4:32</div>
-                </li>
-                <li class="playlist-item" data-song="Gurenge" data-artist="LiSA - 鬼滅之刃" data-duration="3:58" data-totalseconds="238">
-                    <div class="item-number">02</div>
-                    <div class="item-info">
-                        <h3>Gurenge</h3>
-                        <p>LiSA - 鬼滅之刃</p>
-                    </div>
-                    <div class="item-duration">3:58</div>
-                </li>
-                <li class="playlist-item" data-song="Unravel" data-artist="TK - 東京喰種" data-duration="4:21" data-totalseconds="261">
-                    <div class="item-number">03</div>
-                    <div class="item-info">
-                        <h3>Unravel</h3>
-                        <p>TK - 東京喰種</p>
-                    </div>
-                    <div class="item-duration">4:21</div>
-                </li>
-                <li class="playlist-item" data-song="Silhouette" data-artist="KANA-BOON - 火影忍者" data-duration="4:00" data-totalseconds="240">
-                    <div class="item-number">04</div>
-                    <div class="item-info">
-                        <h3>Silhouette</h3>
-                        <p>KANA-BOON - 火影忍者</p>
-                    </div>
-                    <div class="item-duration">4:00</div>
-                </li>
-                <li class="playlist-item" data-song="Again" data-artist="YUI - 鋼之鍊金術師" data-duration="4:14" data-totalseconds="254">
-                    <div class="item-number">05</div>
-                    <div class="item-info">
-                        <h3>Again</h3>
-                        <p>YUI - 鋼之鍊金術師</p>
-                    </div>
-                    <div class="item-duration">4:14</div>
-                </li>
-            </ul>
-        </div>
-        
-        <footer>
-            <p>© 2023 動漫音樂世界 - 沉浸在最愛的動漫音樂中</p>
-        </footer>
     </div>
 
+    <audio id="audio" crossorigin="anonymous"></audio>
+
     <script>
-        $(document).ready(function() {
-            // 標題動畫效果
-            $('h1').hover(
-                function() {
-                    $(this).css('text-shadow', '0 0 20px rgba(255, 255, 255, 0.8), 0 0 30px rgba(255, 255, 255, 0.6)');
-                },
-                function() {
-                    $(this).css('text-shadow', '0 0 10px rgba(255, 255, 255, 0.5)');
-                }
-            );
+        // --- 1. 更新資料 (使用標準 1.mp3 格式) ---
+        const playlist = [
+            { title: "紅蓮の弓矢", artist: "Linked Horizon", file: "1.mp3" },
+            { title: "紅蓮華", artist: "LiSA", file: "2.mp3" },
+            { title: "unravel", artist: "TK from 凛として時雨", file: "3.mp3" },
+            { title: "MASAYUME CHASING", artist: "BoA", file: "4.mp3" },
+            { title: "ないものねだり", artist: "KANA-BOON", file: "5.mp3" }
+        ];
+
+        let currentSongIndex = 0;
+        let isPlaying = false;
+        let audioContext, analyser, dataArray, source;
+        let audioInitialized = false;
+
+        const audio = document.getElementById('audio');
+        const playBtn = document.getElementById('play-btn');
+        const playIcon = playBtn.querySelector('i');
+        const playerContainer = document.getElementById('player-container');
+        const progressBar = document.getElementById('progress-bar');
+        const titleEl = document.getElementById('song-title');
+        const artistEl = document.getElementById('artist-name');
+        const statusMsg = document.getElementById('status-msg');
+
+        function nextScene(sceneNum) {
+            document.querySelectorAll('.scene').forEach(el => el.classList.remove('active'));
+            setTimeout(() => {
+                document.getElementById(`scene-${sceneNum}`).classList.add('active');
+            }, 300);
+        }
+
+        function startMusicWorld() {
+            initAudioContext(); 
+            nextScene(3);
+            loadSong(currentSongIndex);
+            playSong();
+        }
+
+        function initAudioContext() {
+            if (audioInitialized) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext();
+                analyser = audioContext.createAnalyser();
+                source = audioContext.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioContext.destination);
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+                audioInitialized = true;
+            } catch (e) { console.warn("Audio Context init failed."); }
+        }
+
+        function loadSong(index) {
+            const song = playlist[index];
+            titleEl.innerText = song.title;
+            artistEl.innerText = song.artist;
+            audio.src = song.file;
+            progressBar.style.width = '0%';
+        }
+
+        function playSong() {
+            if (audioContext && audioContext.state === 'suspended') audioContext.resume();
             
-            // 動漫角色浮動效果
-            function floatCharacter() {
-                $('.anime-character').animate({bottom: '-30px'}, 1500)
-                                    .animate({bottom: '-50px'}, 1500, floatCharacter);
-            }
-            floatCharacter();
-            
-            // 播放/暫停功能
-            let isPlaying = false;
-            let visualizerInterval;
-            let progressInterval;
-            let currentSeconds = 0;
-            let totalSeconds = 272; // 預設歌曲總秒數
-            
-            $('.play-btn').click(function() {
-                isPlaying = !isPlaying;
-                $(this).text(isPlaying ? '⏸' : '▶');
-                
-                if (isPlaying) {
-                    startVisualizer();
-                    startProgress();
-                } else {
-                    stopVisualizer();
-                    stopProgress();
-                }
+            audio.play().then(() => {
+                isPlaying = true;
+                playerContainer.classList.add('playing');
+                playBtn.classList.add('active');
+                playIcon.className = 'fas fa-pause';
+                rotationSpeed = 0.02;
+                statusMsg.innerText = "正在播放: " + playlist[currentSongIndex].title;
+                statusMsg.style.color = "#00ffff";
+            }).catch(error => {
+                console.error("Play failed:", error);
+                statusMsg.innerText = "播放失敗: 找不到檔案 " + playlist[currentSongIndex].file;
+                statusMsg.style.color = "#ff3333";
+                alert(`播放失敗！\n請確認您的資料夾中是否有：${playlist[currentSongIndex].file}`);
+                isPlaying = false;
             });
-            
-            // 進度條更新功能
-            function startProgress() {
-                progressInterval = setInterval(function() {
-                    currentSeconds++;
-                    
-                    // 更新進度條
-                    const progressPercent = (currentSeconds / totalSeconds) * 100;
-                    $('.progress-bar').css('width', progressPercent + '%');
-                    
-                    // 更新時間顯示
-                    const minutes = Math.floor(currentSeconds / 60);
-                    const seconds = currentSeconds % 60;
-                    $('.current-time').text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-                    
-                    // 如果歌曲播放完畢，自動下一首
-                    if (currentSeconds >= totalSeconds) {
-                        $('.next-btn').click();
-                    }
-                }, 1000);
-            }
-            
-            function stopProgress() {
-                clearInterval(progressInterval);
-            }
-            
-            // 重置進度
-            function resetProgress() {
-                currentSeconds = 0;
-                $('.progress-bar').css('width', '0%');
-                $('.current-time').text('0:00');
-            }
-            
-            // 視覺效果動畫
-            function startVisualizer() {
-                visualizerInterval = setInterval(function() {
-                    $('.bar').each(function() {
-                        const randomHeight = Math.floor(Math.random() * 90) + 10;
-                        $(this).animate({height: randomHeight + '%'}, 200);
-                    });
-                }, 300);
-            }
-            
-            function stopVisualizer() {
-                clearInterval(visualizerInterval);
-                $('.bar').animate({height: '20%'}, 500);
-            }
-            
-            // 播放列表項目點擊效果
-            $('.playlist-item').click(function() {
-                // 移除所有項目的active類
-                $('.playlist-item').removeClass('active');
-                // 添加當前項目的active類
-                $(this).addClass('active');
-                
-                // 滑動效果
-                $(this).animate({paddingLeft: '25px'}, 200)
-                       .animate({paddingLeft: '15px'}, 200);
-                
-                // 更新播放器中的歌曲信息
-                const songTitle = $(this).data('song');
-                const songArtist = $(this).data('artist');
-                const songDuration = $(this).data('duration');
-                totalSeconds = $(this).data('totalseconds');
-                
-                $('.song-info h2').fadeOut(200, function() {
-                    $(this).text(songTitle).fadeIn(200);
-                });
-                
-                $('.song-info p').fadeOut(200, function() {
-                    $(this).text(songArtist).fadeIn(200);
-                });
-                
-                $('.total-time').fadeOut(200, function() {
-                    $(this).text(songDuration).fadeIn(200);
-                });
-                
-                // 重置進度條
-                resetProgress();
-                
-                // 如果播放器正在播放，繼續播放
-                if (isPlaying) {
-                    startProgress();
-                }
-            });
-            
-            // 上一曲/下一曲功能
-            $('.prev-btn').click(function() {
-                const activeItem = $('.playlist-item.active');
-                const prevItem = activeItem.prev('.playlist-item');
-                
-                if (prevItem.length) {
-                    prevItem.click();
-                    
-                    // 按鈕點擊效果
-                    $(this).animate({width: '55px', height: '55px'}, 100)
-                           .animate({width: '60px', height: '60px'}, 100);
-                }
-            });
-            
-            $('.next-btn').click(function() {
-                const activeItem = $('.playlist-item.active');
-                const nextItem = activeItem.next('.playlist-item');
-                
-                if (nextItem.length) {
-                    nextItem.click();
-                    
-                    // 按鈕點擊效果
-                    $(this).animate({width: '55px', height: '55px'}, 100)
-                           .animate({width: '60px', height: '60px'}, 100);
-                }
-            });
-            
-            // 進度條點擊功能
-            $('.progress-container').click(function(e) {
-                const containerWidth = $(this).width();
-                const clickX = e.offsetX;
-                const progressPercent = (clickX / containerWidth) * 100;
-                
-                $('.progress-bar').css('width', progressPercent + '%');
-                
-                // 更新時間顯示
-                currentSeconds = Math.floor((progressPercent / 100) * totalSeconds);
-                
-                const minutes = Math.floor(currentSeconds / 60);
-                const seconds = currentSeconds % 60;
-                
-                $('.current-time').text(`${minutes}:${seconds.toString().padStart(2, '0')}`);
-            });
-            
-            // 控制按鈕懸停效果
-            $('.control-btn').hover(
-                function() {
-                    $(this).animate({backgroundColor: 'rgba(255, 255, 255, 0.3)'}, 200);
-                },
-                function() {
-                    $(this).animate({backgroundColor: 'rgba(255, 255, 255, 0.2)'}, 200);
-                }
-            );
-            
-            // 頁面載入時的淡入效果
-            $('header, .music-player, .playlist').hide().fadeIn(1000);
+        }
+
+        function pauseSong() {
+            audio.pause();
+            isPlaying = false;
+            playerContainer.classList.remove('playing');
+            playBtn.classList.remove('active');
+            playIcon.className = 'fas fa-play';
+            rotationSpeed = 0.005;
+            statusMsg.innerText = "已暫停";
+            statusMsg.style.color = "rgba(255,255,255,0.4)";
+        }
+
+        function togglePlay() { if (isPlaying) pauseSong(); else playSong(); }
+        
+        function prevSong() {
+            currentSongIndex = (currentSongIndex - 1 + playlist.length) % playlist.length;
+            loadSong(currentSongIndex); if(isPlaying) playSong(); change3DColor();
+        }
+
+        function nextSong() {
+            currentSongIndex = (currentSongIndex + 1) % playlist.length;
+            loadSong(currentSongIndex); if(isPlaying) playSong(); change3DColor();
+        }
+
+        audio.addEventListener('timeupdate', (e) => {
+            const { duration, currentTime } = e.srcElement;
+            if (isNaN(duration)) return;
+            const progressPercent = (currentTime / duration) * 100;
+            progressBar.style.width = `${progressPercent}%`;
+            document.getElementById('curr-time').innerText = formatTime(currentTime);
+            document.getElementById('dur-time').innerText = formatTime(duration);
         });
+        audio.addEventListener('ended', nextSong);
+
+        function setProgress(e) {
+            const width = e.currentTarget.clientWidth;
+            const duration = audio.duration;
+            audio.currentTime = (e.offsetX / width) * duration;
+        }
+
+        function formatTime(s) {
+            const min = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+
+        // --- 3D 特效 ---
+        let scene, camera, renderer, mesh, innerMesh, stars;
+        let rotationSpeed = 0.005;
+        let mouseX = 0; let mouseY = 0;
+
+        function init3D() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050505, 0.002);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 6;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            const geometry = new THREE.IcosahedronGeometry(1.5, 1);
+            const material = new THREE.MeshBasicMaterial({ color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.5 });
+            mesh = new THREE.Mesh(geometry, material);
+            scene.add(mesh);
+
+            const innerGeo = new THREE.IcosahedronGeometry(0.8, 2);
+            const innerMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            innerMesh = new THREE.Mesh(innerGeo, innerMat);
+            mesh.add(innerMesh);
+
+            const starGeo = new THREE.BufferGeometry();
+            const starCount = 3000;
+            const posArray = new Float32Array(starCount * 3);
+            for(let i=0; i<starCount*3; i++) {
+                posArray[i] = (Math.random() - 0.5) * 150;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const starMat = new THREE.PointsMaterial({ size: 0.15, color: 0xffffff });
+            stars = new THREE.Points(starGeo, starMat);
+            scene.add(stars);
+
+            document.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX - window.innerWidth / 2) / 100;
+                mouseY = (e.clientY - window.innerHeight / 2) / 100;
+            });
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            animate();
+        }
+
+        function change3DColor() {
+            const colors = [0x00ffff, 0xff00ff, 0x00ff00, 0xffff00, 0xff3333];
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            mesh.material.color.setHex(color);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            mesh.rotation.x += rotationSpeed;
+            mesh.rotation.y += rotationSpeed;
+            stars.rotation.y -= 0.0002;
+
+            camera.position.x += (mouseX - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+
+            let scaleBoost = 0;
+            if (isPlaying && audioInitialized && analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                let sum = 0;
+                for(let i = 0; i < 20; i++) sum += dataArray[i];
+                scaleBoost = (sum / 20) / 100; 
+            } else if (isPlaying) {
+                scaleBoost = Math.sin(Date.now() * 0.01) * 0.1;
+            }
+
+            const targetScale = 1 + scaleBoost;
+            mesh.scale.setScalar(THREE.MathUtils.lerp(mesh.scale.x, targetScale, 0.2));
+            innerMesh.scale.setScalar(1 - scaleBoost * 0.3);
+
+            renderer.render(scene, camera);
+        }
+
+        init3D();
     </script>
 </body>
 </html>
